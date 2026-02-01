@@ -1,8 +1,7 @@
 import os
 import time
+from time import sleep
 from typing import Optional
-import tkinter.messagebox as tk_messagebox
-from tkinter import *
 
 import requests
 from selenium import webdriver
@@ -15,6 +14,19 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 import yaml
+
+from captcha import CaptchaRecognizer
+
+# 全局验证码识别器（懒加载模型）
+_recognizer = None
+
+
+def get_recognizer() -> CaptchaRecognizer:
+    """获取验证码识别器单例"""
+    global _recognizer
+    if _recognizer is None:
+        _recognizer = CaptchaRecognizer()
+    return _recognizer
 
 
 
@@ -43,37 +55,43 @@ def try_find_element(driver: WebDriver, by=By.ID, value: Optional[str] = None, m
     raise NoSuchElementException("没有找到元素 by={} value={}".format(by, value))
 
 
-def get_input(title):
-    def return_callback(event):
-        root.quit()
+def refresh_captcha(driver: WebDriver) -> None:
+    """点击验证码图片刷新"""
+    elem = driver.find_element(by=By.ID, value='imgValidCode')
+    elem.click()
+    time.sleep(0.5)  # 等待新验证码加载
 
-    def close_callback():
-        tk_messagebox.showinfo('message', 'no click...')
 
-    root: Tk = Tk(className=title)
-    root.wm_attributes('-topmost', 1)
-    screenwidth, screenheight = root.maxsize()
-    width = 300
-    height = 100
-    size = '%dx%d+%d+%d' % (width, height, (screenwidth - width) / 2, (screenheight - height) / 2)
-    root.geometry(size)
-    root.resizable(0, 0)
+def recognize_captcha_with_retry(driver: WebDriver, max_retries: int = 3) -> str:
+    """
+    识别验证码，失败时自动刷新重试
 
-    # 显示图片
-    img_png = PhotoImage(file='code.png')
-    label_img = Label(root, image=img_png)
-    label_img.pack()
+    Args:
+        driver: WebDriver 实例
+        max_retries: 最大重试次数
 
-    # 输入框
-    entry = Entry(root)
-    entry.bind('<Return>', return_callback)
-    entry.pack()
-    entry.focus_set()
-    root.protocol("WM_DELETE_WINDOW", close_callback)
-    root.mainloop()
-    str = entry.get()
-    root.destroy()
-    return str
+    Returns:
+        识别出的验证码
+    """
+    recognizer = get_recognizer()
+    captcha_path = os.path.join(os.path.dirname(__file__), "code.png")
+
+    for attempt in range(max_retries):
+        # 截图验证码
+        elem = driver.find_element(by=By.ID, value='imgValidCode')
+        elem.screenshot(captcha_path)
+
+        # 识别
+        try:
+            code = recognizer.recognize(captcha_path)
+            print(f"验证码识别结果 (第{attempt + 1}次): {code}")
+            return code
+        except Exception as e:
+            print(f"验证码识别失败 (第{attempt + 1}次): {e}")
+            if attempt < max_retries - 1:
+                refresh_captcha(driver)
+
+    raise RuntimeError(f"验证码识别失败，已重试 {max_retries} 次")
 
 
 def send_wechat_info(msg, title='打新债结果'):
@@ -99,9 +117,9 @@ def main(driver: WebDriver, zjzh, pwd):
 
     try_find_element(driver=driver, by=By.ID, value='txtZjzh', max_try_num=1, interval=1).send_keys(zjzh)
     try_find_element(driver=driver, by=By.ID, value='txtPwd').send_keys(pwd)
-    elem = driver.find_element(by=By.ID, value='imgValidCode')
-    elem.screenshot("code.png")
-    code = get_input("请输入验证码")
+
+    # 自动识别验证码（失败自动重试）
+    code = recognize_captcha_with_retry(driver, max_retries=3)
 
     try_find_element(driver=driver, by=By.ID, value='txtValidCode').send_keys(code)
     try_find_element(driver=driver, by=By.ID, value='btnConfirm').click()
