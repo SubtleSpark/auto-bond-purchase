@@ -1,0 +1,26 @@
+[project]
+name = "auto-bond-purchase"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "jun14111", email = "1411187249@qq.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "selenium>=4.6.0",
+    "requests",
+    "pyyaml",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[[tool.uv.index]]
+name = "aliyun"
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
