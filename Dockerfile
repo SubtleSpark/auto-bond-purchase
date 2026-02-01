@@ -66,7 +66,9 @@ RUN pip install --no-cache-dir \
 COPY main.py ./
 COPY captcha/ ./captcha/
 COPY models/ ./models/
-COPY cfg.yml ./
+
+# cfg.yml 包含敏感信息，运行时通过 -v 挂载
+# docker run -v /path/to/cfg.yml:/app/cfg.yml ...
 
 # 运行
 CMD ["python", "main.py"]
