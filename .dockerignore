@@ -1,0 +1,26 @@
+    # Git
+.git
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+.env
+
+# IDE
+.idea
+.vscode
+.claude
+
+# 临时文件
+*.png
+*.log
+poetry.lock
+uv.lock
+
+# 其他
+README.md
+Dockerfile
+.dockerignore

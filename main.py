@@ -7,7 +7,6 @@ import requests
 from selenium import webdriver
 from selenium.common.exceptions import *
 from selenium.webdriver.common.by import By
-from selenium.webdriver.edge.service import Service
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
@@ -150,22 +149,55 @@ def main(driver: WebDriver, zjzh, pwd):
     return
 
 
+def create_driver(headless: bool = False, browser: str = None) -> WebDriver:
+    """
+    创建浏览器驱动
+
+    Args:
+        headless: 是否使用无头模式
+        browser: 浏览器类型 ('chrome' 或 'edge')，默认根据环境自动选择
+
+    Returns:
+        WebDriver 实例
+    """
+    if browser is None:
+        # 环境变量指定，或默认使用 Chrome（Linux 兼容性更好）
+        browser = os.environ.get('BROWSER', 'chrome').lower()
+
+    if browser == 'chrome':
+        options = webdriver.ChromeOptions()
+        if headless:
+            options.add_argument('--headless=new')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+        options.add_argument('--window-size=1920,1080')
+        return webdriver.Chrome(options=options)
+    else:
+        options = webdriver.EdgeOptions()
+        if headless:
+            options.add_argument('--headless=new')
+        return webdriver.Edge(options=options)
+
+
 if __name__ == '__main__':
     # 获取yaml文件路径
     curPath = os.path.dirname(os.path.realpath(__file__))
     yamlPath = os.path.join(curPath, "cfg.yml")
 
-    # open方法打开直接读出来
-    f = open(yamlPath, 'r', encoding='utf-8')
-    cfg = f.read()
-    d = yaml.load(cfg, Loader=yaml.FullLoader)
+    # 读取配置
+    with open(yamlPath, 'r', encoding='utf-8') as f:
+        d = yaml.load(f, Loader=yaml.FullLoader)
 
-    print(list(d['user']))
+    # 是否使用 headless 模式（环境变量控制）
+    headless = os.environ.get('HEADLESS', 'false').lower() == 'true'
+    browser = os.environ.get('BROWSER', None)
+
+    print(f"浏览器: {browser or 'chrome'}, Headless: {headless}")
+    print(f"用户列表: {[u['zjzh'] for u in d['user']]}")
 
     for user in d['user']:
-        options = webdriver.EdgeOptions()
-        # options.add_argument('--headless')
-        driver = webdriver.Edge(options=options)
+        driver = create_driver(headless=headless, browser=browser)
         try:
             main(driver, user['zjzh'], user['pwd'])
         except Exception as e:
