@@ -35,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install selenium requests pyyaml tensorflow opencv-python-headless "numpy>=1.23.5,<2.0.0"
+          pip install selenium requests python-dotenv tensorflow opencv-python-headless "numpy>=1.23.5,<2.0.0"
 
       - name: Run script
         env:
