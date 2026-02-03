@@ -10,7 +10,7 @@ requires-python = ">=3.9"
 dependencies = [
     "selenium>=4.6.0",
     "requests",
-    "pyyaml",
+    "python-dotenv",
     "tensorflow>=2.15.0",
     "opencv-python>=4.9.0",
     "numpy>=1.23.5,<2.0.0",

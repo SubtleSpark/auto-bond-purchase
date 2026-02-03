@@ -1,9 +1,9 @@
 import os
 import time
-from time import sleep
 from typing import Optional
 
 import requests
+from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.common.exceptions import *
 from selenium.webdriver.common.by import By
@@ -11,8 +11,6 @@ from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
-
-import yaml
 
 from captcha import CaptchaRecognizer
 
@@ -95,12 +93,14 @@ def recognize_captcha_with_retry(driver: WebDriver, max_retries: int = 3) -> str
 
 def send_wechat_info(msg, title='打新债结果'):
     print(msg)
-    requests.post("https://www.autodl.com/api/v1/wechat/message/push",
-                  json={
-                      "token": '3232ab58ff97',
-                      "title": title,
-                      "content": msg
-                  })
+    token = os.environ.get('WECHAT_TOKEN', '')
+    if token:
+        requests.post("https://www.autodl.com/api/v1/wechat/message/push",
+                      json={
+                          "token": token,
+                          "title": title,
+                          "content": msg
+                      })
 
 
 def main(driver: WebDriver, zjzh, pwd):
@@ -180,23 +180,40 @@ def create_driver(headless: bool = False, browser: str = None) -> WebDriver:
         return webdriver.Edge(options=options)
 
 
+def parse_users() -> list[dict]:
+    """
+    从环境变量 USERS 解析用户列表
+
+    格式: "账号1:密码1,账号2:密码2"
+    """
+    users_str = os.environ.get('USERS', '')
+    if not users_str:
+        raise ValueError("环境变量 USERS 未设置，格式: 账号1:密码1,账号2:密码2")
+
+    users = []
+    for pair in users_str.split(','):
+        pair = pair.strip()
+        if ':' not in pair:
+            raise ValueError(f"用户格式错误: {pair}，应为 账号:密码")
+        zjzh, pwd = pair.split(':', 1)
+        users.append({'zjzh': zjzh.strip(), 'pwd': pwd.strip()})
+    return users
+
+
 if __name__ == '__main__':
-    # 获取yaml文件路径
-    curPath = os.path.dirname(os.path.realpath(__file__))
-    yamlPath = os.path.join(curPath, "cfg.yml")
+    # 加载 .env 文件（不覆盖已有环境变量）
+    load_dotenv()
 
-    # 读取配置
-    with open(yamlPath, 'r', encoding='utf-8') as f:
-        d = yaml.load(f, Loader=yaml.FullLoader)
+    # 从环境变量读取配置
+    users = parse_users()
 
-    # 是否使用 headless 模式（环境变量控制）
     headless = os.environ.get('HEADLESS', 'false').lower() == 'true'
     browser = os.environ.get('BROWSER', None)
 
     print(f"浏览器: {browser or 'chrome'}, Headless: {headless}")
-    print(f"用户列表: {[u['zjzh'] for u in d['user']]}")
+    print(f"用户列表: {[u['zjzh'] for u in users]}")
 
-    for user in d['user']:
+    for user in users:
         driver = create_driver(headless=headless, browser=browser)
         try:
             main(driver, user['zjzh'], user['pwd'])
