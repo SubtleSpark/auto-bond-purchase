@@ -12,8 +12,13 @@ on:
   workflow_dispatch:  # 支持手动触发
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # GitHub Container Registry
+  GHCR_REGISTRY: ghcr.io
+  GHCR_IMAGE: ${{ github.repository }}
+  # 腾讯云容器镜像服务 (TCR)
+  TCR_REGISTRY: ccr.ccs.tencentyun.com
+  TCR_NAMESPACE: hself
+  TCR_IMAGE: auto-bond-purchase
 
 jobs:
   build:
@@ -26,7 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          lfs: true  # 拉取 LFS 文件（模型）
+          lfs: true
 
       - name: Pull LFS files
         run: git lfs pull
@@ -34,18 +39,29 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Container Registry
+      # 登录 GitHub Container Registry
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ${{ env.GHCR_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 登录腾讯云 TCR
+      - name: Log in to Tencent Cloud TCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.TCR_REGISTRY }}
+          username: ${{ secrets.TCR_USERNAME }}
+          password: ${{ secrets.TCR_PASSWORD }}
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.GHCR_REGISTRY }}/${{ env.GHCR_IMAGE }}
+            ${{ env.TCR_REGISTRY }}/${{ env.TCR_NAMESPACE }}/${{ env.TCR_IMAGE }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=
@@ -54,7 +70,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64  # Linux 服务器架构
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
