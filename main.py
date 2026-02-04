@@ -148,15 +148,37 @@ def main(driver: WebDriver, zjzh, pwd):
     try_find_element(driver=driver, by=By.PARTIAL_LINK_TEXT, value='新股新债').click()
     try_find_element(driver=driver, by=By.PARTIAL_LINK_TEXT, value='新债批量申购').click()
 
-    # 查看是否有可申购的债券,如果没有则退出
-    elem = try_find_element(driver=driver, by=By.ID, value='tableBody')
-    if elem.text == '' or elem.text == '暂无数据' or elem.text.isspace():
+    # 等待页面加载
+    time.sleep(1)
+
+    # 查看是否有可申购的债券，检查表格是否有数据行
+    try:
+        table_body = driver.find_element(by=By.ID, value='tableBody')
+        rows = table_body.find_elements(by=By.TAG_NAME, value='tr')
+        if len(rows) == 0:
+            send_wechat_info("当前没有可申购的债券", zjzh)
+            return
+    except NoSuchElementException:
         send_wechat_info("当前没有可申购的债券", zjzh)
         return
 
     # 选择全部债券，点击申购
     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, 'chk_all'))).click()
     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, '批量申购'))).click()
+
+    # 检查是否弹出"请选择需申购的新债"提示
+    try:
+        error_dialog = WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '请选择需申购的新债')]"))
+        )
+        # 点击确定关闭弹窗
+        confirm_btn = driver.find_element(by=By.XPATH, value="//div[contains(@class, 'dialog')]//a[contains(text(), '确定')]")
+        confirm_btn.click()
+        send_wechat_info("当前没有可申购的债券", zjzh)
+        return
+    except TimeoutException:
+        pass  # 没有错误弹窗，继续执行
+
     WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.LINK_TEXT, '确定申购'))).click()
 
     # 获取申购结果
