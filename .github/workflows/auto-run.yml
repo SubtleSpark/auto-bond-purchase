@@ -37,7 +37,7 @@ jobs:
       - name: Run script
         env:
           USERS: ${{ secrets.USERS }}
-          WECHAT_TOKEN: ${{ secrets.WECHAT_TOKEN }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
           BROWSER: chrome
           HEADLESS: "true"
         run: uv run python main.py

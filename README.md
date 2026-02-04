@@ -47,7 +47,7 @@ docker run --rm \
 
 1. 在仓库 Settings → Secrets → Actions 添加：
    - `USERS`: `账号1:密码1,账号2:密码2`
-   - `WECHAT_TOKEN`: 微信推送 token
+   - `PUSHPLUS_TOKEN`: pushplus 推送 token（[获取地址](https://www.pushplus.plus)）
 2. 默认每个交易日北京时间 9:30 自动运行
 3. 也可在 Actions 页面手动触发
 
@@ -60,7 +60,7 @@ docker run --rm \
 | 变量 | 必填 | 默认值 | 说明 |
 |------|------|--------|------|
 | `USERS` | 是 | - | 用户列表，格式: `账号1:密码1,账号2:密码2` |
-| `WECHAT_TOKEN` | 否 | - | 微信推送 token，不设置则不推送 |
+| `PUSHPLUS_TOKEN` | 否 | - | [pushplus](https://www.pushplus.plus) 推送 token，不设置则不推送 |
 | `BROWSER` | 否 | `chrome` | 浏览器类型 (`chrome` 或 `edge`) |
 | `HEADLESS` | 否 | `false` | 是否使用无头模式 |
 
@@ -68,7 +68,7 @@ docker run --rm \
 
 ```env
 USERS=账号1:密码1,账号2:密码2
-WECHAT_TOKEN=your_token
+PUSHPLUS_TOKEN=your_token
 # BROWSER=chrome
 # HEADLESS=true
 ```
