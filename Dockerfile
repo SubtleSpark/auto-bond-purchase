@@ -57,7 +57,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir \
     selenium>=4.6.0 \
     requests \
-    pyyaml \
+    python-dotenv \
     tensorflow>=2.15.0 \
     opencv-python-headless>=4.9.0 \
     "numpy>=1.23.5,<2.0.0"
@@ -67,8 +67,8 @@ COPY main.py ./
 COPY captcha/ ./captcha/
 COPY models/ ./models/
 
-# cfg.yml 包含敏感信息，运行时通过 -v 挂载
-# docker run -v /path/to/cfg.yml:/app/cfg.yml ...
+# 运行时通过 -e 传入环境变量
+# docker run -e USERS="账号:密码" -e PUSHPLUS_TOKEN="token" ...
 
 # 运行
 CMD ["python", "main.py"]

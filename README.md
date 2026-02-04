@@ -1,10 +1,10 @@
 # Auto Bond Purchase
 
-自动新债申购工具，支持深度学习验证码识别。
+基于[东方财富](https://www.eastmoney.com/)证券交易平台的自动新债申购工具，支持深度学习验证码识别。
 
 ## 功能
 
-- 自动登录证券交易平台
+- 自动登录东方财富网上交易平台
 - 深度学习模型自动识别验证码（VGG 网络）
 - 识别失败自动刷新重试（最多 3 次）
 - 批量申购新债
@@ -36,7 +36,7 @@ docker pull ghcr.io/subtlespark/auto-bond-purchase:latest
 # 运行
 docker run --rm \
   -e USERS="账号1:密码1,账号2:密码2" \
-  -e WECHAT_TOKEN="your_token" \
+  -e PUSHPLUS_TOKEN="your_token" \
   -e HEADLESS=true \
   ghcr.io/subtlespark/auto-bond-purchase:latest
 ```
