@@ -172,7 +172,7 @@ def main(driver: WebDriver, zjzh, pwd):
             EC.presence_of_element_located((By.XPATH, "//*[contains(text(), '请选择需申购的新债')]"))
         )
         # 点击确定关闭弹窗
-        confirm_btn = driver.find_element(by=By.XPATH, value="//div[contains(@class, 'dialog')]//a[contains(text(), '确定')]")
+        confirm_btn = driver.find_element(by=By.ID, value="btnCxcConfirm")
         confirm_btn.click()
         send_wechat_info("当前没有可申购的债券", zjzh)
         return
