@@ -21,9 +21,10 @@ def run() -> None:
             for user in config.users:
                 try:
                     result = purchaser.run_for_user(user)
-                    send_pushplus(result, user.account, config.pushplus_token)
+                    message = f"[{user.account}] {result}"
+                    send_pushplus(message, user.account, config.pushplus_token)
                 except Exception as exc:
-                    message = f"打新债失败，{normalize_message(str(exc))}"
+                    message = f"[{user.account}] 打新债失败，{normalize_message(str(exc))}"
                     send_pushplus(message, user.account, config.pushplus_token)
         finally:
             browser.close()
