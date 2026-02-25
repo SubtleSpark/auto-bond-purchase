@@ -62,7 +62,7 @@ class EastmoneyPurchaser:
         raise RuntimeError(str(last_error))
 
     def _run_once(self, page: Page, user: UserCredential) -> str:
-        page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=self.config.timeout_ms)
+        self._goto_login_with_retry(page)
 
         if self._is_non_trade_day(page):
             return "目前不能打新债"
@@ -82,7 +82,9 @@ class EastmoneyPurchaser:
         if not self._has_purchasable_rows(page):
             return "当前没有可申购的债券"
 
-        self._select_all(page)
+        if not self._select_all(page):
+            return "当前没有可申购的债券"
+
         self._click_menu(page, "批量申购")
 
         if self._has_no_purchase_dialog(page):
@@ -94,14 +96,31 @@ class EastmoneyPurchaser:
             confirm.wait_for(state="visible", timeout=3000)
         except PlaywrightTimeoutError:
             dialog_message = self._read_dialog_message(page)
-            if dialog_message and is_no_purchase_message(dialog_message):
+            if dialog_message:
                 self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
-                return "当前没有可申购的债券"
-            raise RuntimeError("未出现可点击的确定申购按钮")
+                if is_no_purchase_message(dialog_message):
+                    return "当前没有可申购的债券"
+                return clean_dialog_text(dialog_message)
+            return "当前没有可申购的债券"
 
         confirm.click(timeout=self.config.timeout_ms)
         dialog_text = page.locator("#Cxc_Dialog").inner_text(timeout=self.config.timeout_ms)
         return clean_dialog_text(dialog_text)
+
+    def _goto_login_with_retry(self, page: Page) -> None:
+        last_error: Optional[Exception] = None
+        for attempt in range(1, 4):
+            try:
+                page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=self.config.timeout_ms)
+                return
+            except Exception as exc:
+                last_error = exc
+                if attempt < 3:
+                    page.wait_for_timeout(1000 * attempt)
+
+        if last_error is None:
+            raise RuntimeError("登录页加载失败")
+        raise last_error
 
     def _is_non_trade_day(self, page: Page) -> bool:
         try:
@@ -134,11 +153,15 @@ class EastmoneyPurchaser:
     def _click_menu(self, page: Page, text: str) -> None:
         page.locator(f"a:has-text('{text}'):visible").first.click(timeout=self.config.timeout_ms)
 
-    def _select_all(self, page: Page) -> None:
+    def _select_all(self, page: Page) -> bool:
         select_all = page.locator("#chk_all")
-        select_all.scroll_into_view_if_needed(timeout=self.config.timeout_ms)
-        select_all.click(timeout=self.config.timeout_ms)
-        page.wait_for_timeout(300)
+        try:
+            select_all.scroll_into_view_if_needed(timeout=self.config.timeout_ms)
+            select_all.click(timeout=self.config.timeout_ms)
+            page.wait_for_timeout(300)
+            return select_all.is_checked()
+        except Exception:
+            return False
 
     def _read_dialog_message(self, page: Page) -> str:
         dialog = page.locator("#Cxc_Dialog:visible").first

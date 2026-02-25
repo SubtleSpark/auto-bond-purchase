@@ -68,6 +68,6 @@ def load_config() -> AppConfig:
         browser=os.environ.get("BROWSER", "chromium").strip().lower(),
         captcha_retries=parse_int(os.environ.get("CAPTCHA_RETRIES"), default=3),
         flow_retries=parse_int(os.environ.get("FLOW_RETRIES"), default=2),
-        timeout_ms=parse_int(os.environ.get("TIMEOUT_MS"), default=10000, minimum=1000),
+        timeout_ms=parse_int(os.environ.get("TIMEOUT_MS"), default=30000, minimum=3000),
         screenshot_dir=os.environ.get("SCREENSHOT_DIR", "artifacts/screenshots").strip(),
     )

@@ -61,7 +61,7 @@ docker run --rm \
 | `HEADLESS` | 否 | `false` | 是否无头模式 |
 | `CAPTCHA_RETRIES` | 否 | `3` | 验证码最大重试次数 |
 | `FLOW_RETRIES` | 否 | `2` | 主流程最大重试次数 |
-| `TIMEOUT_MS` | 否 | `10000` | 页面操作超时时间（毫秒） |
+| `TIMEOUT_MS` | 否 | `30000` | 页面操作超时时间（毫秒） |
 | `SCREENSHOT_DIR` | 否 | `artifacts/screenshots` | 异常截图目录 |
 
 ## 项目结构
