@@ -6,10 +6,11 @@ on:
     paths:
       - 'Dockerfile'
       - 'main.py'
+      - 'autobond/**'
       - 'captcha/**'
       - 'pyproject.toml'
       - '.github/workflows/docker-build.yml'
-  workflow_dispatch:  # 支持手动触发
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -26,7 +27,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          lfs: true  # 拉取 LFS 文件（模型）
+          lfs: true
 
       - name: Pull LFS files
         run: git lfs pull
@@ -54,7 +55,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64  # Linux 服务器架构
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

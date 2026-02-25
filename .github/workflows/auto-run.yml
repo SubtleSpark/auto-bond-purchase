@@ -1,11 +1,9 @@
 name: Auto Bond Purchase
 
 on:
-  # 定时触发：北京时间每个交易日 9:30 和 13:30
   schedule:
-    - cron: '30 1 * * 1-5'  # 北京时间 9:30
-    - cron: '30 5 * * 1-5'  # 北京时间 13:30
-  # 手动触发
+    - cron: '30 1 * * 1-5'
+    - cron: '30 5 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -21,24 +19,19 @@ jobs:
       - name: Pull LFS files
         run: git lfs pull
 
-      - name: Install Chrome
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Install ChromeDriver
-        uses: nanasess/setup-chromedriver@v2
-
       - name: Install uv
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
         run: uv sync
 
+      - name: Install Playwright browser
+        run: uv run playwright install --with-deps chromium
+
       - name: Run script
         env:
           USERS: ${{ secrets.USERS }}
           PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
-          BROWSER: chrome
+          BROWSER: chromium
           HEADLESS: "true"
         run: uv run python main.py

@@ -1,15 +1,16 @@
 # Auto Bond Purchase
 
-基于[东方财富](https://www.eastmoney.com/)证券交易平台的自动新债申购工具，支持深度学习验证码识别。
+基于 Playwright + 深度学习验证码识别（VGG）的东方财富自动新债申购工具。
 
 ## 功能
 
 - 自动登录东方财富网上交易平台
-- 深度学习模型自动识别验证码（VGG 网络）
-- 识别失败自动刷新重试（最多 3 次）
+- 深度学习模型自动识别验证码（VGG）
+- 验证码识别失败自动刷新重试
 - 批量申购新债
-- 支持多账户
-- 微信推送申购结果
+- 多账户批量执行
+- PushPlus 推送申购结果
+- 异常自动截图，支持主流程重试
 
 ## 快速开始
 
@@ -19,7 +20,10 @@
 # 安装依赖
 uv sync
 
-# 编辑 .env 文件配置账号
+# 安装 Playwright 浏览器
+uv run playwright install --with-deps chromium
+
+# 配置环境变量
 cp .env.example .env
 vi .env
 
@@ -30,10 +34,6 @@ uv run python main.py
 ### 2. Docker 运行
 
 ```bash
-# 拉取镜像
-docker pull ghcr.io/subtlespark/auto-bond-purchase:latest
-
-# 运行
 docker run --rm \
   -e USERS="账号1:密码1,账号2:密码2" \
   -e PUSHPLUS_TOKEN="your_token" \
@@ -43,79 +43,48 @@ docker run --rm \
 
 ### 3. GitHub Actions 定时运行
 
-项目支持通过 GitHub Actions 定时自动执行，无需自建服务器。
-
 1. 在仓库 Settings → Secrets → Actions 添加：
    - `USERS`: `账号1:密码1,账号2:密码2`
-   - `PUSHPLUS_TOKEN`: pushplus 推送 token（[获取地址](https://www.pushplus.plus)）
-2. 默认每个交易日北京时间 9:30 自动运行
-3. 也可在 Actions 页面手动触发
+   - `PUSHPLUS_TOKEN`: pushplus 推送 token
+2. 默认每个交易日北京时间 9:30、13:30 自动运行
+3. 可在 Actions 页面手动触发
 
 ## 配置
 
-所有配置通过**环境变量**管理，本地开发可使用 `.env` 文件。
-
-### 环境变量
+所有配置通过环境变量管理，本地开发可使用 `.env` 文件。
 
 | 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
+|---|---|---|---|
 | `USERS` | 是 | - | 用户列表，格式: `账号1:密码1,账号2:密码2` |
-| `PUSHPLUS_TOKEN` | 否 | - | [pushplus](https://www.pushplus.plus) 推送 token，不设置则不推送 |
-| `BROWSER` | 否 | `chrome` | 浏览器类型 (`chrome` 或 `edge`) |
-| `HEADLESS` | 否 | `false` | 是否使用无头模式 |
-
-### .env 文件示例
-
-```env
-USERS=账号1:密码1,账号2:密码2
-PUSHPLUS_TOKEN=your_token
-# BROWSER=chrome
-# HEADLESS=true
-```
+| `PUSHPLUS_TOKEN` | 否 | - | PushPlus 推送 token |
+| `BROWSER` | 否 | `chromium` | 浏览器类型: `chromium` / `chrome` / `edge` |
+| `HEADLESS` | 否 | `false` | 是否无头模式 |
+| `CAPTCHA_RETRIES` | 否 | `3` | 验证码最大重试次数 |
+| `FLOW_RETRIES` | 否 | `2` | 主流程最大重试次数 |
+| `TIMEOUT_MS` | 否 | `10000` | 页面操作超时时间（毫秒） |
+| `SCREENSHOT_DIR` | 否 | `artifacts/screenshots` | 异常截图目录 |
 
 ## 项目结构
 
-```
-auto_bond_purchase/
-├── main.py              # 主程序
+```text
+auto-bond-purchase/
+├── autobond/
+│   ├── config.py        # 环境变量与配置解析
+│   ├── notifier.py      # PushPlus 推送
+│   ├── purchaser.py     # Playwright 申购主流程
+│   └── runner.py        # 多账户运行入口
 ├── captcha/             # 验证码识别模块
-│   ├── recognizer.py    # 识别器
-│   ├── image_process.py # 图像预处理
-│   ├── label_process.py # 标签解码
-│   └── model_utils.py   # 模型工具
-├── models/
-│   └── VGG.keras        # 预训练模型 (Git LFS)
-├── .env                 # 本地配置（不提交）
-├── Dockerfile           # Docker 构建文件
-└── pyproject.toml       # 项目依赖
+├── models/              # VGG 模型文件（Git LFS）
+├── .github/workflows/   # 定时运行与镜像构建
+├── Dockerfile
+└── main.py
 ```
-
-## 依赖
-
-- Python >= 3.9
-- TensorFlow >= 2.15.0
-- Selenium >= 4.6.0
-- OpenCV
-- python-dotenv
-
-## 构建 Docker 镜像
-
-```bash
-docker build -t auto-bond-purchase .
-```
-
-## CI/CD
-
-项目使用 GitHub Actions：
-
-- **自动构建镜像**: 推送到 `master` 分支时自动构建，发布到 `ghcr.io`
-- **定时运行**: 每个交易日北京时间 9:30 自动执行申购
 
 ## 免责声明
 
 - 本项目仅供学习和个人使用，不构成任何投资建议。
-- 使用本工具产生的一切后果由使用者自行承担，作者不对因使用本工具造成的任何损失负责。
-- 请遵守相关法律法规及券商的用户协议，合理使用。
+- 使用本工具产生的一切后果由使用者自行承担。
+- 请遵守相关法律法规及券商用户协议。
 
 ## License
 
