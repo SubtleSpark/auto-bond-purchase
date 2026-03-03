@@ -76,8 +76,8 @@ class EastmoneyPurchaser:
 
         self._safe_click(page.locator(".vbtn-confirm"), timeout_ms=1500)
 
-        self._click_menu(page, "新股新债")
-        self._click_menu(page, "新债批量申购")
+        self._open_new_stock_bond_menu(page)
+        self._open_bond_batch_purchase_page(page)
 
         if not self._has_purchasable_rows(page):
             return "当前没有可申购的债券"
@@ -85,7 +85,7 @@ class EastmoneyPurchaser:
         if not self._select_all(page):
             raise RuntimeError("检测到可申购列表但全选失败，可能页面结构变化")
 
-        self._click_menu(page, "批量申购")
+        self._click_batch_buy(page)
 
         dialog_message = self._wait_dialog_message(page, timeout_ms=2200)
         if dialog_message:
@@ -159,16 +159,22 @@ class EastmoneyPurchaser:
 
         raise RuntimeError(f"验证码识别失败，已重试 {self.config.captcha_retries} 次")
 
-    def _click_menu(self, page: Page, text: str) -> None:
-        if text == "批量申购":
-            page.locator("#btnBatBuy:visible").first.click(timeout=self.config.timeout_ms)
-            return
+    def _open_new_stock_bond_menu(self, page: Page) -> None:
+        menu = page.locator("li.top_item[href='/Trade/NewBuy'] > a.top_a").first
+        menu.click(timeout=self.config.timeout_ms)
+        page.locator("li.top_item[href='/Trade/NewBuy'] ul.sub").first.wait_for(
+            state="visible", timeout=self.config.timeout_ms
+        )
 
-        link = page.get_by_role("link", name=text, exact=True).first
-        try:
-            link.click(timeout=self.config.timeout_ms)
-        except Exception:
-            page.locator(f"a:has-text('{text}'):visible").first.click(timeout=self.config.timeout_ms)
+    def _open_bond_batch_purchase_page(self, page: Page) -> None:
+        link = page.locator(
+            "li.top_item[href='/Trade/NewBuy'] li.sub_item[data-value='trade/xzsgbatpurchase'] > a"
+        ).first
+        link.click(timeout=self.config.timeout_ms)
+        page.wait_for_url("**/Trade/XzsgBatPurchase", timeout=self.config.timeout_ms)
+
+    def _click_batch_buy(self, page: Page) -> None:
+        page.locator("#btnBatBuy:visible").first.click(timeout=self.config.timeout_ms)
 
     def _select_all(self, page: Page) -> bool:
         select_all = page.locator("#chk_all")
