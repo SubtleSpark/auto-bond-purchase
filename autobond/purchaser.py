@@ -160,7 +160,15 @@ class EastmoneyPurchaser:
         raise RuntimeError(f"验证码识别失败，已重试 {self.config.captcha_retries} 次")
 
     def _click_menu(self, page: Page, text: str) -> None:
-        page.locator(f"a:has-text('{text}'):visible").first.click(timeout=self.config.timeout_ms)
+        if text == "批量申购":
+            page.locator("#btnBatBuy:visible").first.click(timeout=self.config.timeout_ms)
+            return
+
+        link = page.get_by_role("link", name=text, exact=True).first
+        try:
+            link.click(timeout=self.config.timeout_ms)
+        except Exception:
+            page.locator(f"a:has-text('{text}'):visible").first.click(timeout=self.config.timeout_ms)
 
     def _select_all(self, page: Page) -> bool:
         select_all = page.locator("#chk_all")
