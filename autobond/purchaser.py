@@ -83,13 +83,19 @@ class EastmoneyPurchaser:
             return "当前没有可申购的债券"
 
         if not self._select_all(page):
-            return "当前没有可申购的债券"
+            raise RuntimeError("检测到可申购列表但全选失败，可能页面结构变化")
 
         self._click_menu(page, "批量申购")
 
-        if self._has_no_purchase_dialog(page):
+        dialog_message = self._wait_dialog_message(page, timeout_ms=2200)
+        if dialog_message:
             self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
-            return "当前没有可申购的债券"
+            normalized = normalize_text(dialog_message)
+            if "请选择需申购的新债" in normalized:
+                raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
+            if is_no_purchase_message(normalized):
+                return "当前没有可申购的债券"
+            return clean_dialog_text(normalized)
 
         confirm = page.locator("#btnConfirm:visible").first
         try:
@@ -98,9 +104,12 @@ class EastmoneyPurchaser:
             dialog_message = self._read_dialog_message(page)
             if dialog_message:
                 self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
-                if is_no_purchase_message(dialog_message):
+                normalized = normalize_text(dialog_message)
+                if "请选择需申购的新债" in normalized:
+                    raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
+                if is_no_purchase_message(normalized):
                     return "当前没有可申购的债券"
-                return clean_dialog_text(dialog_message)
+                return clean_dialog_text(normalized)
             return "当前没有可申购的债券"
 
         confirm.click(timeout=self.config.timeout_ms)
@@ -177,24 +186,29 @@ class EastmoneyPurchaser:
         except PlaywrightTimeoutError:
             return False
 
-        rows = table_body.locator("tr")
-        if rows.count() == 0:
-            return False
+        deadline = datetime.now().timestamp() + 6
+        while datetime.now().timestamp() < deadline:
+            rows = table_body.locator("tr")
+            if rows.count() == 0:
+                page.wait_for_timeout(300)
+                continue
 
-        first_text = " ".join(rows.first.inner_text().split())
-        if "暂无数据" in first_text:
-            return False
+            first_text = normalize_text(rows.first.inner_text())
+            if "暂无数据" in first_text:
+                page.wait_for_timeout(500)
+                continue
 
-        return True
+            return True
 
-    def _has_no_purchase_dialog(self, page: Page) -> bool:
+        return False
+
+    def _wait_dialog_message(self, page: Page, timeout_ms: int) -> str:
+        dialog = page.locator("#Cxc_Dialog:visible").first
         try:
-            page.locator("#Cxc_Dialog:visible").first.wait_for(state="visible", timeout=2000)
-        except PlaywrightTimeoutError:
-            return False
-
-        message = self._read_dialog_message(page)
-        return is_no_purchase_message(message)
+            dialog.wait_for(state="visible", timeout=timeout_ms)
+            return dialog.inner_text(timeout=1200)
+        except Exception:
+            return ""
 
     def _safe_click(self, locator: Locator, timeout_ms: int) -> bool:
         try:
@@ -218,23 +232,24 @@ class EastmoneyPurchaser:
             pass
 
 
+def normalize_text(text: str) -> str:
+    return " ".join(text.replace("\r", " ").replace("\n", " ").split())
+
+
 def is_no_purchase_message(message: str) -> bool:
-    text = " ".join(message.replace("\r", " ").replace("\n", " ").split())
+    text = normalize_text(message)
     return any(
         keyword in text
         for keyword in (
-            "请选择需申购的新债",
             "当前没有可申购的债券",
-            "委托数量不能",
-            "申购数量不能",
+            "暂无可申购",
             "可申购数量为0",
-            "请输入",
         )
     )
 
 
 def clean_dialog_text(text: str) -> str:
-    cleaned = " ".join(text.replace("\r", " ").replace("\n", " ").split())
+    cleaned = normalize_text(text)
     if cleaned.startswith("x "):
         cleaned = cleaned[2:]
     if cleaned.endswith("确定"):
