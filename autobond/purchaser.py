@@ -83,6 +83,7 @@ class EastmoneyPurchaser:
             return "当前没有可申购的债券"
 
         if not self._select_all(page):
+            # 这里不要降级成“无可申购”，否则会把页面结构变化误报成无债。
             raise RuntimeError("检测到可申购列表但全选失败，可能页面结构变化")
 
         self._click_batch_buy(page)
@@ -91,6 +92,7 @@ class EastmoneyPurchaser:
         if dialog_message:
             normalized = normalize_text(dialog_message)
             if "请选择需申购的新债" in normalized:
+                # 页面偶发“点了全选但实际没勾上”，这里做一次自动重试。
                 self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
                 if self._retry_select_and_batch_buy(page):
                     dialog_message = self._wait_dialog_message(page, timeout_ms=1800)
@@ -212,6 +214,7 @@ class EastmoneyPurchaser:
         if self._has_checked_rows(page):
             return True
 
+        # 无头环境里 #chk_all 偶发失效，回退到逐行勾选，避免误报“未勾选”。
         for i in range(checkboxes.count()):
             checkbox = checkboxes.nth(i)
             try:
@@ -264,6 +267,8 @@ class EastmoneyPurchaser:
 
             checkbox_count = table_body.locator("input[name='chkitem']").count()
             if checkbox_count == 0:
+                # 有些时段会出现“表格框架已渲染，但可选项未挂载”的短暂状态。
+                # 不能直接判定为有可申购，否则后续会触发全选失败误报。
                 page.wait_for_timeout(500)
                 continue
 
