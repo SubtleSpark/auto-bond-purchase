@@ -89,13 +89,26 @@ class EastmoneyPurchaser:
 
         dialog_message = self._wait_dialog_message(page, timeout_ms=2200)
         if dialog_message:
-            self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
             normalized = normalize_text(dialog_message)
             if "请选择需申购的新债" in normalized:
-                raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
-            if is_no_purchase_message(normalized):
-                return "当前没有可申购的债券"
-            return clean_dialog_text(normalized)
+                self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
+                if self._retry_select_and_batch_buy(page):
+                    dialog_message = self._wait_dialog_message(page, timeout_ms=1800)
+                    if dialog_message:
+                        normalized = normalize_text(dialog_message)
+                        self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
+                        if "请选择需申购的新债" in normalized:
+                            raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
+                        if is_no_purchase_message(normalized):
+                            return "当前没有可申购的债券"
+                        return clean_dialog_text(normalized)
+                else:
+                    raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
+            else:
+                self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
+                if is_no_purchase_message(normalized):
+                    return "当前没有可申购的债券"
+                return clean_dialog_text(normalized)
 
         confirm = page.locator("#btnConfirm:visible").first
         try:
@@ -103,10 +116,17 @@ class EastmoneyPurchaser:
         except PlaywrightTimeoutError:
             dialog_message = self._read_dialog_message(page)
             if dialog_message:
-                self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
                 normalized = normalize_text(dialog_message)
                 if "请选择需申购的新债" in normalized:
+                    self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
+                    if self._retry_select_and_batch_buy(page):
+                        confirm.wait_for(state="visible", timeout=3000)
+                        confirm.click(timeout=self.config.timeout_ms)
+                        dialog_text = page.locator("#Cxc_Dialog").inner_text(timeout=self.config.timeout_ms)
+                        return clean_dialog_text(dialog_text)
                     raise RuntimeError("检测到可申购列表但未成功勾选，可能页面结构变化")
+
+                self._safe_click(page.locator("#btnCxcConfirm"), timeout_ms=2000)
                 if is_no_purchase_message(normalized):
                     return "当前没有可申购的债券"
                 return clean_dialog_text(normalized)
@@ -177,14 +197,44 @@ class EastmoneyPurchaser:
         page.locator("#btnBatBuy:visible").first.click(timeout=self.config.timeout_ms)
 
     def _select_all(self, page: Page) -> bool:
-        select_all = page.locator("#chk_all")
+        checkboxes = page.locator("#tableBody input[name='chkitem']")
+        if checkboxes.count() == 0:
+            return False
+
         try:
+            select_all = page.locator("#chk_all")
             select_all.scroll_into_view_if_needed(timeout=self.config.timeout_ms)
             select_all.click(timeout=self.config.timeout_ms)
-            page.wait_for_timeout(300)
-            return select_all.is_checked()
+        except Exception:
+            pass
+
+        page.wait_for_timeout(300)
+        if self._has_checked_rows(page):
+            return True
+
+        for i in range(checkboxes.count()):
+            checkbox = checkboxes.nth(i)
+            try:
+                if checkbox.is_enabled() and not checkbox.is_checked():
+                    checkbox.scroll_into_view_if_needed(timeout=self.config.timeout_ms)
+                    checkbox.click(timeout=self.config.timeout_ms)
+            except Exception:
+                continue
+
+        page.wait_for_timeout(300)
+        return self._has_checked_rows(page)
+
+    def _has_checked_rows(self, page: Page) -> bool:
+        try:
+            return page.locator("#tableBody input[name='chkitem']:checked").count() > 0
         except Exception:
             return False
+
+    def _retry_select_and_batch_buy(self, page: Page) -> bool:
+        if not self._select_all(page):
+            return False
+        self._click_batch_buy(page)
+        return True
 
     def _read_dialog_message(self, page: Page) -> str:
         dialog = page.locator("#Cxc_Dialog:visible").first
@@ -209,6 +259,11 @@ class EastmoneyPurchaser:
 
             first_text = normalize_text(rows.first.inner_text())
             if "暂无数据" in first_text:
+                page.wait_for_timeout(500)
+                continue
+
+            checkbox_count = table_body.locator("input[name='chkitem']").count()
+            if checkbox_count == 0:
                 page.wait_for_timeout(500)
                 continue
 
