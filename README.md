@@ -41,13 +41,19 @@ docker run --rm \
   ghcr.io/subtlespark/auto-bond-purchase:latest
 ```
 
-### 3. GitHub Actions 定时运行
+### 3. GitHub Actions 运行
 
 1. 在仓库 Settings → Secrets → Actions 添加：
    - `USERS`: `账号1:密码1,账号2:密码2`
    - `PUSHPLUS_TOKEN`: pushplus 推送 token
-2. 默认每个交易日北京时间 9:30、13:30 自动运行
-3. 可在 Actions 页面手动触发
+2. 可在 Actions 页面手动触发 `Auto Bond Purchase`
+
+### 调度设计
+
+- `.github/workflows/auto-run.yml` 只保留 `workflow_dispatch`，不使用 GitHub 原生 `schedule`。GitHub 定时任务可能出现较明显的排队延迟，不适合本项目对执行时间的要求。
+- 生产调度由 Cloudflare Worker `auto-bond-purchase-scheduler` 负责，在工作日北京时间 9:30、13:30 调用 GitHub Actions 的 `workflow_dispatch`。
+- Cloudflare Cron 使用 UTC，对应表达式为 `30 1 * * MON-FRI` 和 `30 5 * * MON-FRI`。
+- 不要同时启用 GitHub 原生定时任务和 Cloudflare 调度，避免同一申购任务被重复触发。
 
 ## 配置
 
